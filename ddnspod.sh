@@ -11,6 +11,7 @@
 case $(uname) in
   'Linux')
     echo "Linux"
+    # get public ip from local
     arIpAddress() {
         local extip
         extip=$(ip -o -4 addr list | grep -Ev '\s(docker|lo)' | awk '{print $4}' | cut -d/ -f1 | grep -Ev '(^127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$)|(^10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$)|(^172\.1[6-9]{1}[0-9]{0,1}\.[0-9]{1,3}\.[0-9]{1,3}$)|(^172\.2[0-9]{1}[0-9]{0,1}\.[0-9]{1,3}\.[0-9]{1,3}$)|(^172\.3[0-1]{1}[0-9]{0,1}\.[0-9]{1,3}\.[0-9]{1,3}$)|(^192\.168\.[0-9]{1,3}\.[0-9]{1,3}$)')
@@ -18,6 +19,20 @@ case $(uname) in
 	        extip=$(ip -o -4 addr list | grep -Ev '\s(docker|lo)' | awk '{print $4}' | cut -d/ -f1 )
         fi
         echo $extip
+    }
+    # get public ip from dnspod.net
+    arIpAddressRemote() {
+        local inter="http://ns1.dnspod.net:6666"
+        if command -v wget > /dev/null 2>&1; then
+            wget --quiet --output-document=- $inter
+        else
+            if command -v curl > /dev/null 2>&1; then
+                curl --silent -o- $inter
+            else
+                echo "could not fint wget or curl command"
+                exit 1
+            fi
+        fi
     }
     ;;
   'FreeBSD')
@@ -146,7 +161,16 @@ arApiPost() {
     else
         local param="login_token=${arToken}&format=json&${2}"
     fi
-    wget --quiet --no-check-certificate --output-document=- --user-agent=$agent --post-data $param $inter
+    if command -v wget > /dev/null 2>&1; then
+        wget --quiet --no-check-certificate --output-document=- --user-agent=$agent --post-data $param $inter
+    else
+        if command -v curl > /dev/null 2>&1; then
+            curl -o- -k --silent --user-agent $agent -d $param $inter
+        else
+            echo "could not find wget or curl command"
+            exit 1
+        fi
+    fi
 }
 
 # Update
